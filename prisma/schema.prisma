@@ -1,0 +1,87 @@
+
+//======================================================
+//
+// Prismaスキーマファイル
+//
+// [索引]
+//  □ 0-1. モデル定義 Tweet
+//  □ 0-2. モデル定義 User
+//
+//======================================================
+
+// クライアント生成
+generator client {
+  provider = "prisma-client-js"
+}
+
+// DB設定
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+//======================================================
+//
+// 0-1. モデル定義 Tweet
+//
+//======================================================	
+
+// Tweetモデル
+//　・ツイート1件分のデータ
+//
+model Tweet {
+
+  // DB内のID　連番
+  id  Int  @id @default (autoincrement())
+
+  // Twitter内の数値形式のツイートID    例'101010101011000'
+  id_str_in_twitter String
+
+  // Twitter内のユーザ名 			例：田中
+  user_name	 String 
+  
+  // Twitter内のユーザの文字列形式のID 	例：@test
+  user_screen_name  String
+  
+  // ツイート本文
+  tweet_text  String
+  
+  // RT数
+  rt_count  Int
+  
+  // RTしたユーザ
+  rt_user_account_name  String
+  
+  // 投稿日時
+  posted_date  DateTime
+  
+  // DBデータ更新日時
+  udate_date  DateTime	@updatedAt  	
+}
+
+//======================================================
+//
+// 0-2. モデル定義 User
+//
+//======================================================	
+
+// Userモデル
+// 　・ツイッターユーザ1件分のデータ
+//
+model User {
+
+  // DB内のID　連番
+  id  Int  @id @default (autoincrement())
+
+  // Twitter内のユーザ名 			例：田中
+  user_name	 String 
+  
+  // Twitter内のユーザの文字列形式のID 	例：@test
+  user_screen_name  String
+  
+  // フォロー済か
+  is_following Boolean @default(false)
+
+  // DBデータ更新日時
+  udate_date  DateTime	@updatedAt  	
+}

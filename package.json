@@ -1,0 +1,25 @@
+{
+  "name": "footrtbot",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node ./bin/www"
+  },
+  "dependencies": {
+    "@prisma/client": "^4.6.1",
+    "cookie-parser": "~1.4.4",
+    "debug": "~2.6.9",
+    "ejs": "~2.6.1",
+    "express": "~4.16.1",
+    "http-errors": "~1.6.3",
+    "log4js": "^6.7.0",
+    "morgan": "~1.9.1",
+    "sequelize": "^6.25.5",
+    "sqlite3": "^5.1.2",
+    "twitter": "^1.7.1",
+    "twitter-api-v2": "^1.12.9"
+  },
+  "devDependencies": {
+    "prisma": "^4.6.1"
+  }
+}
