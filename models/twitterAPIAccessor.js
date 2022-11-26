@@ -69,7 +69,7 @@ var _myTwitterID = '';
  * @param {function} callback
  * @return {array} TweetModelの配列
  */
- module.exports.getTweetModelsFromTimeLine = async function(callback) {
+module.exports.getTweetModelsFromTimeLine = async function() {
 	var tModels = [];
 
 	try {		
@@ -77,7 +77,7 @@ var _myTwitterID = '';
 		const homeTimeline = await _twClient.v1.homeTimeline({'count': _constants.TWEET_GET_COUNT_FROM_TL});
 		console.log(homeTimeline.tweets.length, 'fetched.');
 		
-		// ツイートを走査。一定以上のRTのデータを配列に格納
+		// ツイートを走査
 		for (const tObj of homeTimeline.tweets) {
 			// APIのツイートデータをDB保存用のツイートデータに変換
 			const tm = _dbAccessor.getTweetModelFromTweetObj(tObj);
@@ -105,15 +105,18 @@ var _myTwitterID = '';
  * @param {function} callback
  * @return {array} TweetModelの配列
  */
-module.exports.getManyRTTweetModelsFromTimeLine = async function(callback) {
+module.exports.getManyRTTweetsFromTimeLine = async function(callback) {
 	var manyRtTwModels = [];
 
-	try {		
+	try {				
 		// タイムラインからツイート取得
-		const htTwModels = await getTweetModelsFromTimeLine();
+		const homeTimeline = await _twClient.v1.homeTimeline({'count': _constants.TWEET_GET_COUNT_FROM_TL});
+		console.log(homeTimeline.tweets.length, 'fetched.');
 
-		// ツイートを走査。一定以上のRTのデータを配列に格納
-		for (const tm of htTwModels) {			
+		// ツイートを走査
+		for (const tObj of homeTimeline.tweets) {
+			// APIのツイートデータをDB保存用のツイートデータに変換
+			const tm = _dbAccessor.getTweetModelFromTweetObj(tObj);
 			// RT数が一定以上なら配列に追加
 			if (_constants.RETWEET_LEAST_RT < tm.rt_count) {		
 				manyRtTwModels.push(tm);
@@ -201,71 +204,111 @@ async function retweetTargetIDTweet(tidStr) {
  * 対象キーワードで検索を実行し、一定のRT以上のツイートIDのリストを返す　
  * 
  * @param {string} q 
- * @param {*} callback 
  * @returns 
  */
- module.exports.getManyRTTweetIdsBySearch = async function(q, callback) {
-	var tids = [];
+ module.exports.getManyRTTweetsBySearch = async function(q) {
+	var tweets = [];
+	var savedTweetIds = [];
 
 	try {
-		// 自分のTwitterIDをセット
-		await setMyTwitterID();
 		// 検索実行
-		const tweets = await _twClient.v2.search(q, {'tweet.fields': ['public_metrics'], 'user.fields': ['public_metrics'], 'sort_order': 'recency', 'max_results': 100, 'expansions': ['referenced_tweets.id'] });
+		const searchResObj = await getSearchResultObj(q);
 		// 検索結果のツイートを走査
-		for (const tw of tweets._realData.data) {
-			const rtCount = tw.public_metrics.retweet_count
+		for (const twObj of searchResObj._realData.data) {
+			// APIの検索結果をTweetモデルに変換
+			const tw = _dbAccessor.getTweetModelFromTweetSearchObj(twObj);			
+			// 配列に保存済ならスキップ
+			if (savedTweetIds.indexOf(tw.id_str_in_twitter) !== -1) {
+				continue;
+			}
 
 			// RT数が一定以上なら
-			if (_constants.RETWEET_LEAST_RT <= rtCount) {
-				tids.push(tw.id_str);
+			if (_constants.RETWEET_LEAST_RT <= tw.rt_count) {
+				// 配列に追加
+				tweets.push(tw);
+				savedTweetIds.push(tw.id_str_in_twitter);
 			}
 		}
 	} catch (error) {
 		_logger.error(error);
 	}
 
-	return tids
+	return tweets
 }
+
+//======================================================
+// 検索結果のオブジェクトを取得
+//======================================================
+
+/**
+ * 検索結果のオブジェクトを取得
+ * 
+ * @param {string} q 
+ * @returns 
+ */
+async function getSearchResultObj(q) {
+	const SORT_ORDER_RECENCY   = 'recency';
+	const SORT_ORDER_RELEVANCY = 'relevancy';
+
+	try {
+		// 自分のTwitterIDをセット
+		await setMyTwitterID();
+
+		// 新着ツイート、または関連性の高いツイートを検索するかをセット
+		var sortOrder = SORT_ORDER_RELEVANCY;
+		if (_constants.SEARCH_TWEET_BY_RECENCY) {
+			sortOrder = SORT_ORDER_RECENCY;
+		}
+
+		// 検索実行
+		const searchResObj = await _twClient.v2.search(q, {'tweet.fields': ['public_metrics'], 'user.fields': ['public_metrics'], 'sort_order': sortOrder, 'max_results': 100, 'expansions': ['referenced_tweets.id'] });
+
+		return searchResObj;
+	} catch (error) {
+		_logger.error(error);
+	}
+}
+
 	
 //======================================================
 //
-// 4. 自分がフォローしているユーザのアカウント名を全件取得
+// 4. 自分がフォローしているユーザデータを全件取得
 //
 //======================================================
 
 /**
- * 自分がフォローしているユーザのアカウント名を全件取得
+ * 自分がフォローしているユーザデータを全件取得
+ * 　・TwitterAPIで取得したユーザオブジェクトをDB保存用のUserModelに変換して返す
  * 
  * @returns {array}
  */
-module.exports.getFollowUserScreenNames = async function() {
-	var sNames = [];
+module.exports.getMyFollowUserModels = async function() {
+	var uModels = [];
 
 	try {
 		// 自分のTwitterIDをセット
 		await setMyTwitterID();
 		// フォロー中のユーザをセット
-		const fd = await _twClient.v2.following('72914344', { "user.fields": ['entities']});		
-		const followers = fd.data;
-		console.log(followers.length + '件のフォロー中ユーザのデータを取得');
+		const fd = await _twClient.v2.following(_myTwitterID, { "user.fields": ['entities']});		
+		const fObjs = fd.data;
+		console.log(fObjs.length + '件のフォロー中ユーザのデータを取得');
 
 		// フォローしているユーザを走査
-		for (const f of followers) {
-			sNames.push(f.user_screen_name);
+		for (const fObj of fObjs) {
+			// Userモデルに変換して配列に追加
+			const um = _dbAccessor.getUserModelFromUserObj(fObj);
+			uModels.push(um);
 		}
 	} catch (error) {
 		_logger.error(error);
 	}
 
-	return sNames
+	return uModels
 }
-
-
 
 //======================================================
 //
-// 6-1. トレンドのキーワードのうち、ホームタイムラインでつぶやかれているキーワード一覧を取得
+// 5-1. トレンドのキーワードのうち、ホームタイムラインでつぶやかれているキーワード一覧を取得
 //
 //======================================================
 
@@ -282,7 +325,7 @@ module.exports.getFollowUserScreenNames = async function() {
 
 	try {
 		// 日本のトレンドキーワード一覧をセット 
-		const allTrWords = await getTrendKeywords();
+		const allTrWords = await getJPTrendKeywords();
 		// タイムラインからツイート取得
 		const ht = await _twClient.v1.homeTimeline();
 
@@ -308,10 +351,9 @@ module.exports.getFollowUserScreenNames = async function() {
  * トレンドのキーワード一覧を取得
  * 　・日本のトレンドのキーワードを取得
  * 
- * @param {*} callback 
- * @return trWords
+ * @return {array}
  */
- async function getTrendKeywords() {
+ async function getJPTrendKeywords() {
 	trWords = [];
 
 	try {

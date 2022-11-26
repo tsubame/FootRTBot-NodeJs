@@ -25,6 +25,19 @@ module.exports.TWEET_GET_COUNT_FROM_TL = 200;
 // この数以上のRT数でリツイート
 module.exports.RETWEET_LEAST_RT = 100; 
 
+// 検索時、最新のツイートを検索するか　false = 関連性の高いツイートを検索
+module.exports.SEARCH_TWEET_BY_RECENCY = true;
+
+//======================================================
+// 検索キーワード
+//======================================================
+
+// 検索キーワード　このキーワードで検索し、RT数の多いツイートをRT
+module.exports.SEARCH_TARGET_KEYWORDS = _app_config.SEARCH_TARGET_KEYWORDS;
+
+// RT時のNGワード　このキーワードを含むツイートはRTしない
+module.exports.RT_NG_KEYWORDS = _app_config.RT_NG_KEYWORDS;
+
 //======================================================
 // サイト設定
 //======================================================
@@ -70,32 +83,6 @@ module.exports.ACCESS_TOKEN_KEY = _app_config.ACCESS_TOKEN_KEY;
 // Access Token Secret
 module.exports.ACCESS_TOKEN_SECRET = _app_config.ACCESS_TOKEN_SECRET;
 
-// アカウント設定。WATCH_TL: TL監視用に使用、TWEET:    つぶやき用に使用
-/*
-module.exports.ACCOUNT_VALS_DICT = {
-	WATCH_TL: {
-		screen_name:         _app_config.TWITTER_ACCOUNT_NAME,
-		consumer_key:        _app_config.CONSUMER_KEY,
-		consumer_secret:     _app_config.CONSUMER_SECRET,
-		access_token:        _app_config.ACCESS_TOKEN,
-		access_token_secret: _app_config.ACCESS_TOKEN_SECRET
-	},
-	TWEET: {
-		screen_name:         _app_config.TWITTER_ACCOUNT_NAME,
-		consumer_key:        _app_config.CONSUMER_KEY,
-		consumer_secret:     _app_config.CONSUMER_SECRET,
-		access_token:        _app_config.ACCESS_TOKEN,
-		access_token_secret: _app_config.ACCESS_TOKEN_SECRET
-	},
-	DEV: {
-		screen_name:         _app_config.TWITTER_ACCOUNT_NAME,
-		consumer_key:        _app_config.CONSUMER_KEY,
-		consumer_secret:     _app_config.CONSUMER_SECRET,
-		access_token:        _app_config.ACCESS_TOKEN,
-		access_token_secret: _app_config.ACCESS_TOKEN_SECRET
-	}
-}*/
-
 //======================================================
 // ロギング用
 //======================================================
@@ -125,10 +112,3 @@ module.exports.LOG4JS_CONFIG_VALS_DICT = {
 	}		
 };
 
-/*
-// log4j
-module.exports.LOG = {
-	DIR: './logs/',
-	INFO_FILE: 'info.log',
-	ERROR_FILE: 'error.log'
-}*/

@@ -40,12 +40,17 @@ const _prismaClient = new _prisma.PrismaClient();
 
 //======================================================
 //
-// 1. ホームタイムライン上の一定数以上のツイートをRT
+// 1-1. タイムライン上の一定数以上のツイートをRT
 //
 //======================================================
 
 /**
- * ホームタイムライン上の一定数以上のツイートをRT
+ * タイムライン上の一定数以上のツイートをRT
+ * 	・タイムライン上から一定以上のRTのツイートを取得
+ * 	・RT数の多いツイートのうち、DB未保存のツイートをピックアップ
+ * 	・RT実行
+ * 	・RTしたツイートをDB登録
+ * 	・RTしたツイートのうち、未フォローのユーザをDBに保存
  * 
  * @param {Object} req 
  * @param {Object} res 
@@ -53,96 +58,190 @@ const _prismaClient = new _prisma.PrismaClient();
 module.exports.retweetFromHomeTimeLine = async function(req, res) {
 	try {
 		// ホームタイムライン上から一定数以上のRTのツイートを取得
-		const htManyRTTweetModels = await _twAccessor.getManyRTTweetModelsFromTimeLine();
-		console.log('RT数の多いTLのツイート：' + htManyRTTweetModels.length);
-
-		// DB未保存のデータのみを取得
-		const newManyRTTweetModels = await _dbAccessor.getNotDBSavedTweetModels(htManyRTTweetModels);
-		console.log('DB未保存のRT数の多いTLのツイート：' + newManyRTTweetModels.length);
-
+		const tlManyRTTweets = await _twAccessor.getManyRTTweetsFromTimeLine();
+		// RT数の多いツイートのうち、DB未保存のツイートをピックアップ
+		const newManyRTTweets = await _dbAccessor.getNotDBSavedTweets(tlManyRTTweets);
+		console.log('TL内のRT数の多い新規ツイート：' + newManyRTTweets.length);
 		// RT実行
-		_twAccessor.retweetTargetTweets(newManyRTTweetModels);
-		// DB登録
-		_dbAccessor.saveTweetDatas(newManyRTTweetModels);		
+		_twAccessor.retweetTargetTweets(newManyRTTweets);
+		// RTしたツイートをDB登録
+		_dbAccessor.saveTweetDatas(newManyRTTweets);		
 
-		// フォロー中のユーザのアカウント名を取得
-		const fsNames = await _tw.getFollowUserScreenNames();
-
-
-		// 未フォローのユーザをD
-
-		/*
-		// トレンドワードをセット
-		_twAccessor.getTrendKeywordsInHomeTimeLine().then(function(trWords) { 
-			console.log(trWords);
-
-			// 各ワードで検索
-			for (trWord of trWords) {
-				_twAccessor.getManyRTTweetIdsBySearch(trWord).then(function() {
-					
-				});
-			}
-		});*/
+		// RTしたツイートのうち、未フォローのユーザをDBに保存
+		//saveNotFollowUserInRTTweetsToDB(newManyRTTweetModels);
 	} catch (error) {
 		_logger.error(error);
 	}
 
+	// 結果を描画
 	res.send("done.");	
 }
 
 //======================================================
-// RTしたツイートのユーザのうち、未フォローのユーザを返す
+// RTしたツイートのうち、未フォローのユーザをDBに保存
 //======================================================
 
-function getNotFollowUserScreenNames
+/**
+ * RTしたツイートのうち、未フォローのユーザをDBに保存
+ * 
+ * @param {array} tweets 
+ */
+async function saveNotFollowUserInRTTweetsToDB(tweets) {
+	var targetFcs = [];
 
-/*
-// TLを取得して100RT以上のものをリツイート
-function rtTweets(req, res){
-	var action = require('../models/rt_tweets_action');
-	action.exec();
+	try {
+		// 自分がフォローしているユーザデータを取得
+		const fuModels = await _twAccessor.getMyFollowUserModels();
 
-	res.send('done.');
-};
+		// ツイートを走査
+		for (tm of tweets) {
+			// 未フォローなら
+			if (!checkTargetUserFollowing(tm, fuModels)) {
+				// フォロー候補ユーザモデルをセットし、配列に追加
+				const fum = _dbAccessor.getUserModelFromTweetModel(tm);				
+				notFollowUModels.push();
+			}
+		}
 
-// アクション 最近のRTを表示
-function showRecentRetweets(req, res){
-	retweet_model.getRecentRetweets(100, function(recent_retweets) {
-		res.render('show_recent_rts', { retweets: recent_retweets });
-	});
-};
+		// 未フォローのユーザのうち、DB未保存のデータを保存
+		_dbAccessor.saveFollowCandidateModels(not)
+		console.log('[未フォローユーザ]' + notFollowUserModels);
+		_dbAccessor.saveUserModels(fuModels);
+	} catch (error) {
+		_logger.error(error);
+	}	
+}
 
-// アクション 最近のRTとRT候補をメールで送信
-function sendRtMail(req, res) {
-	var action = require('../models/send_rt_mail_action');
-	action.exec();
+/**
+ * 対象ツイートのユーザをフォロー済かを返す
+ * 
+ * @param {Object} tm
+ * @param {array} folloingUModels 
+ * @returns {boolean}
+ */
+function checkTargetUserFollowing(tm, folloingUModels) {
+	try {
+		// ツイートを走査
+		for (fu of folloingUModels) {
+			if (fu.user_screen_name == tm.user_screen_name) {
+				return true;
+			}
+		}
+	} catch (error) {
+		_logger.error(error);
+	}	
 
-	res.send('done.');
+	return false;
+}
+
+//======================================================
+//
+// 1-2. トレンド内の対象ジャンルのキーワードを検索し、一定数以上のツイートをRT
+//
+//======================================================
+
+/**
+ * トレンド内の対象ジャンルのキーワードを検索し、一定数以上のツイートをRT
+ * 	・日本のトレンドのキーワードのうち、TLのツイート内に含まれるキーワードをピックアップ
+ * 	・それぞれを検索し、RT数の多いツイートをRT
+ * 	・RTしたツイートをDB登録
+ * 	・RTしたツイートのうち、未フォローのユーザをDBに保存
+ * 
+ * @param {Object} req 
+ * @param {Object} res 
+ */
+ module.exports.retweetFromTrendWord = async function(req, res) {
+	try {
+		// 日本のトレンドのキーワードのうち、TLのツイート内に含まれるキーワードをピックアップ
+		const trWords = await _twAccessor.getTrendKeywordsInHomeTimeLine();
+		// それぞれを検索し、RT数の多いツイートをRT
+		for (tWord of trWords) {
+			var newManyRTTweets = await _twAccessor.getManyRTTweetIdsBySearch(tWord);
+
+			// RT実行
+			_twAccessor.retweetTargetTweets(newManyRTTweets);
+			// RTしたツイートをDB登録
+			_dbAccessor.saveTweetDatas(newManyRTTweets);					
+		}
+	} catch (error) {
+		_logger.error(error);
+	}
+
+	// 結果を描画
+	res.send("done.");	
 }
 
 
-// デモコード
-function demo(req, res) {
-	tw.setAccount(CONST.ACCOUNT.TWEET);
-	//tw.setAccount(CONST.ACCOUNT.WATCH_TL);
-	//tw.demo();
+//======================================================
+//
+// 1-3. 特定のキーワードを検索し、一定数以上のツイートをRT
+//
+//======================================================
 
-	var functions = [
-	             function(cb) {
-	            	 console.log('((ﾉ)・ω・(ヾ)ﾑﾆﾑﾆ');
-	            	 cb();
-	             },
-	             function(cb) {
-	             	console.log('(o´・ω・｀)σ)Д｀)ﾌﾟﾆｮﾌﾟﾆｮ');
-	             	cb();
-	             }
+/**
+ * 特定のキーワードを検索し、一定数以上のツイートをRT
+ * 	・定数で設定されたキーワードを検索し、RT数の多いツイートをRT
+ *	・NGワードを含むツイートはRTしない
+ * 	・RTしたツイートをDB登録
+ * 	・RTしたツイートのうち、未フォローのユーザをDBに保存
+ * 
+ * @param {Object} req 
+ * @param {Object} res 
+ */
+module.exports.retweetFromTargetSearchWords = async function(req, res) {
+	var rtTargetTweets = [];
 
-	             ];
-	var cb = function() {};
-	functions[1](cb);
+	try {
+		// 対象のキーワードを走査
+		for (tWord of _constants.SEARCH_TARGET_KEYWORDS) {
+			// 対象のキーワードで検索し、RT数の多いツイートをセット
+			const searchedManyRTTweets = await _twAccessor.getManyRTTweetsBySearch(tWord);
 
-	var async = require('async');
-	async.series(functions);
+			// 上記のうち、DB未保存のツイートをピックアップ
+			const newManyRTTweets = await _dbAccessor.getNotDBSavedTweets(searchedManyRTTweets);
 
-	res.send('done.');
-}*/
+			// NGワードを含まないものを配列に追加
+			for (tw of newManyRTTweets) {
+				if (!checkTargetTweetContainsNGWord(tw)) {
+					rtTargetTweets.push(tw);
+
+					// ロギング
+					_logger.debug('[RT候補を検索キーワード「' + tWord + '」からセット] ' + tw.rt_count + 'RT');
+					_logger.debug(tw.tweet_text);
+				}
+			}
+		}
+
+		// RT実行
+		_twAccessor.retweetTargetTweets(rtTargetTweets);
+		// RTしたツイートをDB登録
+		_dbAccessor.saveTweetDatas(rtTargetTweets);							
+	} catch (error) {
+		_logger.error(error);
+	}
+
+	// 結果を描画
+	res.send("done.");	
+}
+
+
+/**
+ * 対象のツイートがNGワードを含むかを返す
+ * 
+ * @param {Object} tw 
+ * @returns {Boolean}
+ */
+function checkTargetTweetContainsNGWord(tw) {
+	try {
+		// NGワードを走査
+		for (ngWord of _constants.RT_NG_KEYWORDS) { 
+			if (tw.tweet_text.indexOf(ngWord) !== -1) {
+				return true;
+			}
+		}
+	} catch (error) {
+		_logger.error(error);
+	}
+
+	return false;
+}

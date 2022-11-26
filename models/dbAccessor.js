@@ -5,8 +5,12 @@
 // [索引]
 //	□ 1-1. TwitterAPIから取得したTweetObjectをDB保存用のTweetモデルに変換
 //	□ 1-2. TwitterAPIから取得したUserObjectをDB保存用のUserモデルに変換
-//	□ 2.　　対象ツイートのうち、DB未保存のデータを返す
-//	□ 3.　　対象ツイートデータをDBに保存
+//	□ 1-3. TwitterAPIから取得したTweet検索結果オブジェクトをDB保存用のTweetモデルに変換
+//	□ 1-4. TweetモデルをDB保存用のUserモデルに変換
+//	□ 2-1. 対象ツイートのうち、DB未保存のデータを返す
+//	□ 2-2. 対象ユーザデータのうち、DB未保存のユーザデータを返す
+//	□ 3-1. 対象ツイートデータをDBに保存
+//	□ 3-2. 対象ユーザデータをDBに保存
 //
 //======================================================
 
@@ -59,8 +63,6 @@ module.exports.getTweetModelFromTweetObj = function(twObj) {
       'user_screen_name':  twObj.user.screen_name,
       'tweet_text': twObj.full_text,
       'rt_count':   twObj.retweet_count,      
-      'rt_user_account_name': '',
-      'posted_date': new Date(twObj.created_at),
     }
 	} catch (error) {
 		_logger.error(error);
@@ -71,23 +73,86 @@ module.exports.getTweetModelFromTweetObj = function(twObj) {
 
 //======================================================
 //
-// 1-2. TwitterAPIから取得したUserObjectをDB保存用のUserモデルに変換
+// 1-2. TwitterAPIから取得したUserObjectをDB保存用のFollowCandidateUserモデルに変換
 //
 //======================================================
 
 /**
- * TwitterAPIから取得したUserObjectをDB保存用のUserモデルに変換
+ * TwitterAPIから取得したUserObjectをDB保存用のFollowCandidateUserモデルに変換
  * 
  * @param {Object} uObj
  * @return {Object} 
  */
- module.exports.getTweetModelFromTweetObj = function(uObj) {
+ module.exports.getFollowCandidateUserModelFromUserObj = function(uObj) {
   var d = {}
 
   try {
     d = {
-      'user_name': uObj.uname,
-      'user_screen_name':  uObj.screen_name,
+      'user_name': uObj.name,
+      'user_screen_name':  uObj.username,
+    }
+	} catch (error) {
+		_logger.error(error);
+	}		
+
+  return d;
+}
+
+
+//======================================================
+//
+// 1-3. TwitterAPIから取得したTweet検索結果オブジェクトをDB保存用のTweetモデルに変換
+//
+//======================================================
+
+/**
+ * APIのTweet検索結果オブジェクトをDB保存用のTweetモデルに変換
+ * 
+ * @param {Object} sObj
+ * @return {Object} 
+ */
+ module.exports.getTweetModelFromTweetSearchObj = function(sObj) {
+  var d = {}
+
+  try {
+    d = {
+			'id_str_in_twitter': sObj.id,
+      'user_name': '',
+      'user_screen_name':  '',
+      'tweet_text': sObj.text,
+      'rt_count':   sObj.public_metrics.retweet_count,
+    }
+
+		// RTはID書き換え
+		if (sObj['referenced_tweets']) {
+			d.id_str_in_twitter = sObj['referenced_tweets'][0]['id'];
+		}		
+	} catch (error) {
+		_logger.error(error);
+	}		
+
+  return d;
+}
+
+//======================================================
+//
+// 1-4. TweetモデルをDB保存用のUserモデルに変換
+//
+//======================================================
+
+/**
+ * TweetモデルをDB保存用のUserモデルに変換
+ * 
+ * @param {Object} tObj
+ * @return {Object} 
+ */
+ module.exports.getUserModelFromTweetModel = function(tObj) {
+  var d = {}
+
+  try {
+    d = {
+      'user_name': tObj.user_name,
+      'user_screen_name':  tObj.user_screen_name,
     }
 	} catch (error) {
 		_logger.error(error);
@@ -98,7 +163,7 @@ module.exports.getTweetModelFromTweetObj = function(twObj) {
 
 //======================================================
 //
-// 2. 対象ツイートのうち、DB未保存のデータを返す
+// 2-1. 対象ツイートのうち、DB未保存のデータを返す
 //
 //======================================================
 
@@ -108,27 +173,27 @@ module.exports.getTweetModelFromTweetObj = function(twObj) {
  * @param {array} tTweetDatas 
  * @return {array}
  */
- module.exports.getNotDBSavedTweetModels = async function(tTweetDatas) {
-	var notDBSavedTweetDatas = [];
+ module.exports.getNotDBSavedTweets = async function(targetTwModels) {
+	var notDBSavedTweetModels = [];
 
 	try {
 		const MAX_FETCH_COUNT = 1000
 		// DBのデータを取得
-		const dbSavedTweetDatas = await _prismaClient.tweet.findMany({'orderBy': {'posted_date': 'desc'}, 'take': MAX_FETCH_COUNT});		
-		console.log('DB保存済のデータを取得: ' + dbSavedTweetDatas.length + '件');
+		const dbSavedTweetModels = await _prismaClient.tweet.findMany({'orderBy': {'udate_date': 'desc'}, 'take': MAX_FETCH_COUNT});		
+		console.log('DB保存済のデータを取得: ' + dbSavedTweetModels.length + '件');
 
 		// 対象ツイートを走査
-		for (tw of tTweetDatas) {
+		for (tm of targetTwModels) {
 			// DB未保存なら配列に追加
-			if (!checkTargetTweetAlreadyDBSaved(dbSavedTweetDatas, tw)) {
-				notDBSavedTweetDatas.push(tw);
+			if (!checkTargetTweetAlreadyDBSaved(dbSavedTweetModels, tm)) {
+				notDBSavedTweetModels.push(tm);
 			}
 		}
 	} catch (error) {
 		_logger.error(error);
 	}		
 
-	return notDBSavedTweetDatas;
+	return notDBSavedTweetModels;
 }
 
 //======================================================
@@ -156,30 +221,89 @@ function checkTargetTweetAlreadyDBSaved(dbSavedTweets, tTweet) {
 	return false;
 }
 
+
 //======================================================
 //
-// 3. 対象ツイートデータをDBに保存
+// 2-2. 対象ユーザデータのうち、DB未保存のユーザデータを返す
+//
+//======================================================
+
+/**
+ * 対象ユーザデータのうち、DB未保存のユーザデータを返す
+ * 
+ * @param {array} tUModels 
+ * @return {array}
+ */
+ module.exports.getNotDBSavedUserModels = async function(targetUModels) {
+	var notDBSavedUserModels = [];
+
+	try {
+		const MAX_FETCH_COUNT = 1000
+		// DBのデータを取得
+		const savedUModels = await _prismaClient.user.findMany({'orderBy': {'id': 'desc'}, 'take': MAX_FETCH_COUNT});		
+		console.log('DB保存済のデータを取得: ' + savedUModels.length + '件');
+
+		// 対象ツイートを走査
+		for (um of targetUModels) {
+			// DB未保存なら配列に追加
+			if (!checkTargetUserAlreadyDBSaved(savedUModels, um)) {
+				notDBSavedUserModels.push(um);
+			}
+		}
+	} catch (error) {
+		_logger.error(error);
+	}		
+
+	return notDBSavedUserModels;
+}
+
+//======================================================
+// 対象ユーザがDB保存済かを返す
+//======================================================
+
+/**
+ * 対象ユーザがDB保存済かを返す
+ * 
+ * @param {array}  savedUModels 
+ * @param {Object} tuModel 
+ * @returns 
+ */
+ function checkTargetUserAlreadyDBSaved(savedUModels, tuModel) {
+	try {
+		for (um of savedUModels) {
+			if (um.user_screen_name == tuModel.user_screen_name) {
+				return true;
+			}
+		}
+	} catch (error) {
+		_logger.error(error);		
+	}
+
+	return false;
+}
+
+//======================================================
+//
+// 3-1. 対象ツイートデータをDBに保存
 //
 //======================================================
 
 /**
  * 対象ツイートデータをDBに保存
  * 
- * @param {array} tTweetDatas 
- * @return {array}
+ * @param {array} tModels 
  */
- module.exports.saveTweetDatas = async function(tTweetDatas) {
+ module.exports.saveTweetDatas = async function(tModels) {
 	try {
-		for (d of tTweetDatas) {
+		for (d of tModels) {
 			await _prismaClient.tweet.create({
 				data: {
-					'id_str_in_twitter': d.id_str_in_twitter,
-					'user_name': d.user_name,
-					'user_screen_name':  d.user_screen_name,
-					'tweet_text': d.tweet_text,
-					'rt_count':   d.rt_count,      
-					'rt_user_account_name': '',
-					'posted_date': d.posted_date,					
+					'id_str_in_twitter': 		d.id_str_in_twitter,
+					'user_name': 						d.user_name,
+					'user_screen_name':  		d.user_screen_name,
+					'tweet_text': 					d.tweet_text,
+					'rt_count':   					d.rt_count,      
+					'posted_date': 					d.posted_date,					
 				}
 			})
 		}
@@ -188,3 +312,82 @@ function checkTargetTweetAlreadyDBSaved(dbSavedTweets, tTweet) {
 	}		
 }
 
+//======================================================
+//
+// 3-2. 対象フォロー候補ユーザデータをDBに保存
+//
+//======================================================
+
+/**
+ * 対象フォロー候補ユーザデータをDBに保存
+ * 
+ * @param {array} targetFCModels 
+ */
+ module.exports.saveFollowCandidateModels = async function(targetFCModels) {
+	try {
+		// DB保存済のフォロー候補をセット
+		const savedFCModels = await _prismaClient.followCandidate.findMany({});
+
+		// 今回のフォロー候補を走査
+		for (fm of targetFCModels) {
+			// DB保存済ならスキップ
+			if (checkTargetFCAlreadyDBSaved(savedFCModels, tfm)) {
+				continue;
+			}
+
+			// DB保存
+			await _prismaClient.followCandidate.create({
+				data: {
+					'user_name': 				fm.user_name,
+					'user_screen_name': fm.user_screen_name,			
+				}
+			})
+		}
+	} catch (error) {
+		_logger.error(error);
+	}		
+}
+
+/**
+ * 対象のフォロー候補をDBに保存済みかを返す
+ * 
+ * @param {*} savedFCModels 
+ * @param {*} tfm 
+ */
+function checkTargetFCAlreadyDBSaved(savedFCModels, tfm) {
+	try {
+		for (fm of savedFCModels) {
+			if (fm.user_screen_name == tfm.user_screen_name) {
+				return true;
+			}
+		}
+	} catch (error) {
+		_logger.error(error);
+	}		
+
+	return false;
+}
+
+
+//======================================================
+//
+// 10. テスト用
+//
+//======================================================
+
+/**
+ * テスト用
+ * 
+ * @param {array} tUModels 
+ */
+ module.exports.sample = async function() {
+	try {
+		const MAX_FETCH_COUNT = 1000
+		// DBのデータを取得
+		const savedUModels = await _prismaClient.followCandidateUser.findMany();		
+		const tws = await _prismaClient.tweet.findMany();		
+		//console.log('DB保存済のフォロー候補データを取得: ' + ds.length + '件');
+	} catch (error) {
+		_logger.error(error);
+	}		
+}
