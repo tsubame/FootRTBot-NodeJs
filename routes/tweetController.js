@@ -156,7 +156,9 @@ function checkTargetUserFollowing(tm, folloingUModels) {
 		const trWords = await _twAccessor.getTrendKeywordsInHomeTimeLine();
 		// それぞれを検索し、RT数の多いツイートをRT
 		for (tWord of trWords) {
-			var newManyRTTweets = await _twAccessor.getManyRTTweetIdsBySearch(tWord);
+			var searchedManyRTTweets = await _twAccessor.getManyRTTweetsBySearch(tWord);
+			// 上記のうち、DB未保存のツイートをピックアップ
+			const newManyRTTweets = await _dbAccessor.getNotDBSavedTweets(searchedManyRTTweets);
 
 			// RT実行
 			_twAccessor.retweetTargetTweets(newManyRTTweets);
@@ -224,6 +226,9 @@ module.exports.retweetFromTargetSearchWords = async function(req, res) {
 	res.send("done.");	
 }
 
+//======================================================
+// 対象のツイートがNGワードを含むかを返す
+//======================================================
 
 /**
  * 対象のツイートがNGワードを含むかを返す
