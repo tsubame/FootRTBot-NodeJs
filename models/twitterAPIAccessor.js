@@ -10,9 +10,9 @@
 //    □ 1-1. ホームタイムラインのツイートを200件分取得
 //    □ 1-2. ホームタイムラインから一定のRT数以上のツイートを取得
 //    □ 2.   複数件のツイートをRT
-//    □ 3. 検索実行
-//    □ 6-1. トレンドのキーワードのうち、ホームタイムラインでつぶやかれているキーワード一覧を取得
-//    □ 3. 自分がフォローしているユーザのIDを全件取得
+//    □ 3.   対象キーワードで検索を実行し、一定のRT以上のツイートIDのリストを返す　
+//    □ 4.   トレンドのキーワードのうち、ホームタイムラインでつぶやかれているキーワード一覧を取得
+//    □ 5.   自分がフォローしているユーザのIDを全件取得
 //
 //======================================================
 
@@ -269,46 +269,9 @@ async function getSearchResultObj(q) {
   }
 }
 
-  
 //======================================================
 //
-// 4. 自分がフォローしているユーザデータを全件取得
-//
-//======================================================
-
-/**
- * 自分がフォローしているユーザデータを全件取得
- * 　・TwitterAPIで取得したユーザオブジェクトをDB保存用のUserModelに変換して返す
- * 
- * @returns {array}
- */
-module.exports.getMyFollowUserModels = async function() {
-  var uModels = [];
-
-  try {
-    // 自分のTwitterIDをセット
-    await setMyTwitterID();
-    // フォロー中のユーザをセット
-    const fd = await _twClient.v2.following(_myTwitterID, { "user.fields": ['entities']});    
-    const fObjs = fd.data;
-    console.log(fObjs.length + '件のフォロー中ユーザのデータを取得');
-
-    // フォローしているユーザを走査
-    for (const fObj of fObjs) {
-      // Userモデルに変換して配列に追加
-      const um = _dbAccessor.getUserModelFromUserObj(fObj);
-      uModels.push(um);
-    }
-  } catch (error) {
-    _logger.error(error);
-  }
-
-  return uModels
-}
-
-//======================================================
-//
-// 5-1. トレンドのキーワードのうち、ホームタイムラインでつぶやかれているキーワード一覧を取得
+// 4. トレンドのキーワードのうち、ホームタイムラインでつぶやかれているキーワード一覧を取得
 //
 //======================================================
 
@@ -401,4 +364,40 @@ function checkTargetKeywordExistInHomeTimeLine(ht, keyword) {
   }
 
   return false;
+}
+
+//======================================================
+//
+// 5. 自分がフォローしているユーザデータを全件取得
+//
+//======================================================
+
+/**
+ * 自分がフォローしているユーザデータを全件取得
+ * 　・TwitterAPIで取得したユーザオブジェクトをDB保存用のUserModelに変換して返す
+ * 
+ * @returns {array}
+ */
+ module.exports.getMyFollowUserModels = async function() {
+  var uModels = [];
+
+  try {
+    // 自分のTwitterIDをセット
+    await setMyTwitterID();
+    // フォロー中のユーザをセット
+    const fd = await _twClient.v2.following(_myTwitterID, { "user.fields": ['entities']});    
+    const fObjs = fd.data;
+    console.log(fObjs.length + '件のフォロー中ユーザのデータを取得');
+
+    // フォローしているユーザを走査
+    for (const fObj of fObjs) {
+      // Userモデルに変換して配列に追加
+      const um = _dbAccessor.getUserModelFromUserObj(fObj);
+      uModels.push(um);
+    }
+  } catch (error) {
+    _logger.error(error);
+  }
+
+  return uModels
 }

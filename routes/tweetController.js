@@ -2,6 +2,14 @@
 //
 // ツイート用コントローラモジュール
 //
+// [必要ライブラリ]
+//  ・log4js
+//
+// [索引]
+//    □ 1-1. タイムライン上の一定数以上のツイートをRT
+//    □ 1-2. トレンド内の対象ジャンルのキーワードを検索し、一定数以上のツイートをRT
+//    □ 1-3. 特定のキーワードを検索し、一定数以上のツイートをRT
+//
 //======================================================
 
 //======================================================
@@ -9,16 +17,13 @@
 //======================================================
 
 // 定数
-const _constants = require('../etc/const');
+const _constants  = require('../etc/const');
 
 // log4js
-const _log4js = require('log4js');
+const _log4js     = require('log4js');
 
 // Twitter操作用モデル
 const _twAccessor = require('../models/twitterAPIAccessor');
-
-// prisma 
-const _prisma = require('@prisma/client');
 
 // DB操作用
 const _dbAccessor = require('../models/dbAccessor');
@@ -33,9 +38,6 @@ _log4js.configure(_constants.LOG4JS_CONFIG_VALS_DICT);
 
 // ロギング用
 const _logger = _log4js.getLogger();
-
-// PrismaClient
-const _prismaClient = new _prisma.PrismaClient();
 
 
 //======================================================

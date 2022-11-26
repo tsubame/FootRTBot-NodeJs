@@ -2,6 +2,10 @@
 //
 // DB操作用モジュール
 //
+// [必要ライブラリ]
+//  ・prisma
+//  ・log4js
+//
 // [索引]
 //  □ 1-1. TwitterAPIから取得したTweetObjectをDB保存用のTweetモデルに変換
 //  □ 1-2. TwitterAPIから取得したUserObjectをDB保存用のUserモデルに変換
