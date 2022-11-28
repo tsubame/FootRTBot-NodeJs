@@ -47,6 +47,9 @@ app.get('/trend', _twController.retweetFromTrendWord);
 //　検索からのRT処理
 app.get('/search', _twController.retweetFromTargetSearchWords);
 
+//　サンプル処理
+app.get('/sample', _twController.sample);
+
 /*
 app.use('/', indexRouter);
 app.use('/users', usersRouter);

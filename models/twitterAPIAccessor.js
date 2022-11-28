@@ -213,8 +213,12 @@ async function retweetTargetIDTweet(tidStr) {
   try {
     // 検索実行
     const searchResObj = await getSearchResultObj(q);
-    // 検索結果のツイートを走査
+		console.log(searchResObj);
+
+		// 検索結果のツイートを走査
     for (const twObj of searchResObj._realData.data) {
+			console.log(twObj);
+
       // APIの検索結果をTweetモデルに変換
       const tw = _dbAccessor.getTweetModelFromTweetSearchObj(twObj);      
       // 配列に保存済ならスキップ
@@ -249,6 +253,7 @@ async function retweetTargetIDTweet(tidStr) {
 async function getSearchResultObj(q) {
   const SORT_ORDER_RECENCY   = 'recency';
   const SORT_ORDER_RELEVANCY = 'relevancy';
+	const SEARCH_COUNT = 100;
 
   try {
     // 自分のTwitterIDをセット
@@ -259,10 +264,20 @@ async function getSearchResultObj(q) {
     if (_constants.SEARCH_TWEET_BY_RECENCY) {
       sortOrder = SORT_ORDER_RECENCY;
     }
+		
+		// 開始時刻をセット
+		var startTime = new Date()
+		startTime.setHours(startTime.getHours() - _constants.SKIP_PAST_HOUR);
 
     // 検索実行
-    const searchResObj = await _twClient.v2.search(q, {'tweet.fields': ['public_metrics'], 'user.fields': ['public_metrics'], 'sort_order': sortOrder, 'max_results': 100, 'expansions': ['referenced_tweets.id'] });
-
+    const searchResObj = await _twClient.v2.search(q, 
+				{'tweet.fields': ['public_metrics', 'referenced_tweets', 'created_at', 'source'], 
+				 'start_time': startTime.toISOString(), 
+				 'user.fields': ['public_metrics'], 
+				 'sort_order': sortOrder, 
+				 'max_results': SEARCH_COUNT, 
+				 'expansions': ['referenced_tweets.id']});
+		
     return searchResObj;
   } catch (error) {
     _logger.error(error);

@@ -16,8 +16,8 @@ var _app_config = require('./app_config');
 // リツイート設定
 //======================================================
 
-// この日数より前のツイートは無視
-module.exports.SKIP_PAST_DAY = 2;
+// この時間(h)より以前のツイートは無視
+module.exports.SKIP_PAST_HOUR = 24;
 
 // TLから1度に取得するツイートの数
 module.exports.TWEET_GET_COUNT_FROM_TL = 200;
@@ -26,7 +26,7 @@ module.exports.TWEET_GET_COUNT_FROM_TL = 200;
 module.exports.RETWEET_LEAST_RT = 100; 
 
 // 検索時、最新のツイートを検索するか　false = 関連性の高いツイートを検索
-module.exports.SEARCH_TWEET_BY_RECENCY = true;
+module.exports.SEARCH_TWEET_BY_RECENCY = false;
 
 //======================================================
 // 検索キーワード

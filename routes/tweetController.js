@@ -254,3 +254,44 @@ function checkTargetTweetContainsNGWord(tw) {
 
   return false;
 }
+
+
+
+
+//======================================================
+//
+// 10. サンプル用処理
+//
+//======================================================
+
+/**
+ * サンプル用処理
+ * 
+ * @param {Object} req 
+ * @param {Object} res 
+ */
+ module.exports.sample = async function(req, res) {
+  var rtTargetTweets = [];
+
+  try {
+    // 対象のキーワードを走査
+    for (tWord of _constants.SEARCH_TARGET_KEYWORDS) {
+      // 対象のキーワードで検索し、RT数の多いツイートをセット
+      const searchedManyRTTweets = await _twAccessor.getManyRTTweetsBySearch(tWord);
+
+			break;
+    }
+
+		/*
+    // RT実行
+    _twAccessor.retweetTargetTweets(rtTargetTweets);
+    // RTしたツイートをDB登録
+    _dbAccessor.saveTweetDatas(rtTargetTweets);              
+		*/
+  } catch (error) {
+    _logger.error(error);
+  }
+
+  // 結果を描画
+  res.send("done.");  
+}
