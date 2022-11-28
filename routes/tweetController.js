@@ -61,9 +61,11 @@ module.exports.retweetFromHomeTimeLine = async function(req, res) {
   try {
     // ホームタイムライン上から一定数以上のRTのツイートを取得
     const tlManyRTTweets = await _twAccessor.getManyRTTweetsFromTimeLine();
+    console.log('TL内のRT数の多いツイート：' + tlManyRTTweets.length);
+
     // RT数の多いツイートのうち、DB未保存のツイートをピックアップ
     const newManyRTTweets = await _dbAccessor.getNotDBSavedTweets(tlManyRTTweets);
-    console.log('TL内のRT数の多い新規ツイート：' + newManyRTTweets.length);
+    console.log('DB未保存の新規ツイート：' + newManyRTTweets.length);
     // RT実行
     _twAccessor.retweetTargetTweets(newManyRTTweets);
     // RTしたツイートをDB登録

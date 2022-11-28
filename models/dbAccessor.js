@@ -214,7 +214,7 @@ module.exports.getTweetModelFromTweetObj = function(twObj) {
 function checkTargetTweetAlreadyDBSaved(dbSavedTweets, tTweet) {
   try {
     for (tw of dbSavedTweets) {
-      if (tw.id_str_in_twitter = tTweet.id_str_in_twitter) {
+      if (tw.id_str_in_twitter == tTweet.id_str_in_twitter) {
         return true;
       }
     }
