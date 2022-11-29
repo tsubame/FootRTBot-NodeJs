@@ -235,6 +235,11 @@ async function retweetTargetIDTweet(tidStr) {
         continue;
       }
 
+      // テキストにキーワードが含まれていなければスキップ
+      if (tw.indexOf(q) === -1) {
+        continue;
+      }
+
       // RT数が一定以上なら配列に追加
       if (_constants.RETWEET_LEAST_RT <= tw.rt_count) {        
         tweets.push(tw);
@@ -410,6 +415,10 @@ function checkTargetKeywordExistInHomeTimeLine(ht, keyword) {
   var twIds = [];
 
   try {
+    if (tws.length == 0) {
+      return tws;
+    }
+
     // IDを配列に追加
     for (tw of tws) {
       twIds.push(tw.id_str_in_twitter);
@@ -419,7 +428,7 @@ function checkTargetKeywordExistInHomeTimeLine(ht, keyword) {
     const res = await _twClient.v2.tweets(twIds, {'tweet.fields': 'created_at'});    
     const tObjs = res.data;
     console.log(tObjs.length + '件のツイートのデータを取得');
-    console.log(tObjs);
+    //console.log(tObjs);
 
     // ツイートを走査。IDをセット
     for (tw of tws) {      

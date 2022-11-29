@@ -150,6 +150,7 @@ function checkPostedDateWithInTargetHours(tw) {
 
 /**
  * 対象のツイートがNGワードを含むかを返す
+ *  ・本文、またはクライアント名に含めばTrue
  * 
  * @param {Object} tw 
  * @returns {Boolean}
@@ -159,6 +160,9 @@ function checkPostedDateWithInTargetHours(tw) {
     // NGワードを走査
     for (ngWord of _constants.RT_NG_KEYWORDS) { 
       if (tw.tweet_text.indexOf(ngWord) !== -1) {
+        return true;
+      }
+      if (tw.client_name.indexOf(ngWord) !== -1) {
         return true;
       }
     }
