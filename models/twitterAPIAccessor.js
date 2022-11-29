@@ -236,7 +236,7 @@ async function retweetTargetIDTweet(tidStr) {
       }
 
       // テキストにキーワードが含まれていなければスキップ
-      if (tw.indexOf(q) === -1) {
+      if (tw.tweet_text.indexOf(q) === -1) {
         continue;
       }
 
