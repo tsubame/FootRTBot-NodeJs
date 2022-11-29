@@ -66,11 +66,11 @@ var _myTwitterID = '';
 /**
  * ホームタイムラインのツイートを200件分取得
  * 
- * @param {function} callback
- * @return {array} TweetModelの配列
+ * @param {boolean} includeRTTweet RTされたツイートを含めるか
+ * @return {array} 
  */
-module.exports.getTweetModelsFromTimeLine = async function() {
-  var tModels = [];
+module.exports.getTweetModelsFromTimeLine = async function(includeRTTweet) {
+  var tws = [];
 
   try {    
     // タイムラインからツイート取得
@@ -79,16 +79,23 @@ module.exports.getTweetModelsFromTimeLine = async function() {
     
     // ツイートを走査
     for (const tObj of homeTimeline.tweets) {
+      // RTはスキップ
+      if (tObj.retweeted_status) {
+        if (!includeRTTweet) {
+          continue;
+        }
+      }
+
       // APIのツイートデータをDB保存用のツイートデータに変換
-      const tm = _dbAccessor.getTweetModelFromTweetObj(tObj);
+      const tw = _dbAccessor.getTweetModelFromTweetObj(tObj);
       // 配列に追加
-      tModels.push(tm);
+      tws.push(tw);
     }
   } catch (error) {
     _logger.error(error);
   }  
 
-  return tModels;
+  return tws;
 }
 
 //======================================================
@@ -106,27 +113,32 @@ module.exports.getTweetModelsFromTimeLine = async function() {
  * @return {array} TweetModelの配列
  */
 module.exports.getManyRTTweetsFromTimeLine = async function(callback) {
-  var manyRtTwModels = [];
+  var manyRtTweets = [];
 
   try {        
     // タイムラインからツイート取得
     const homeTimeline = await _twClient.v1.homeTimeline({'count': _constants.TWEET_GET_COUNT_FROM_TL});
-    console.log(homeTimeline.tweets.length, 'fetched.');
+    console.log(homeTimeline.tweets.length, 'tweet fetched from timeline.');
 
     // ツイートを走査
     for (const tObj of homeTimeline.tweets) {
+      // RT済はスキップ
+      if (tObj.retweeted) {
+        continue;
+      }
+
       // APIのツイートデータをDB保存用のツイートデータに変換
-      const tm = _dbAccessor.getTweetModelFromTweetObj(tObj);
+      const tw = _dbAccessor.getTweetModelFromTweetObj(tObj);
       // RT数が一定以上なら配列に追加
-      if (_constants.RETWEET_LEAST_RT < tm.rt_count) {    
-        manyRtTwModels.push(tm);
+      if (_constants.RETWEET_LEAST_RT < tw.rt_count) {    
+        manyRtTweets.push(tw);
       }
     }
   } catch (error) {
     _logger.error(error);
   }  
 
-  return manyRtTwModels;
+  return manyRtTweets;
 }
 
 
@@ -213,12 +225,9 @@ async function retweetTargetIDTweet(tidStr) {
   try {
     // 検索実行
     const searchResObj = await getSearchResultObj(q);
-		console.log(searchResObj);
 
-		// 検索結果のツイートを走査
+    // 検索結果のツイートを走査
     for (const twObj of searchResObj._realData.data) {
-			console.log(twObj);
-
       // APIの検索結果をTweetモデルに変換
       const tw = _dbAccessor.getTweetModelFromTweetSearchObj(twObj);      
       // 配列に保存済ならスキップ
@@ -226,9 +235,8 @@ async function retweetTargetIDTweet(tidStr) {
         continue;
       }
 
-      // RT数が一定以上なら
-      if (_constants.RETWEET_LEAST_RT <= tw.rt_count) {
-        // 配列に追加
+      // RT数が一定以上なら配列に追加
+      if (_constants.RETWEET_LEAST_RT <= tw.rt_count) {        
         tweets.push(tw);
         savedTweetIds.push(tw.id_str_in_twitter);
       }
@@ -253,7 +261,7 @@ async function retweetTargetIDTweet(tidStr) {
 async function getSearchResultObj(q) {
   const SORT_ORDER_RECENCY   = 'recency';
   const SORT_ORDER_RELEVANCY = 'relevancy';
-	const SEARCH_COUNT = 100;
+  const SEARCH_COUNT = 100;
 
   try {
     // 自分のTwitterIDをセット
@@ -264,20 +272,20 @@ async function getSearchResultObj(q) {
     if (_constants.SEARCH_TWEET_BY_RECENCY) {
       sortOrder = SORT_ORDER_RECENCY;
     }
-		
-		// 開始時刻をセット
-		var startTime = new Date()
-		startTime.setHours(startTime.getHours() - _constants.SKIP_PAST_HOUR);
+    
+    // 開始時刻をセット
+    var startTime = new Date()
+    startTime.setHours(startTime.getHours() - _constants.SKIP_PAST_HOUR);
 
     // 検索実行
     const searchResObj = await _twClient.v2.search(q, 
-				{'tweet.fields': ['public_metrics', 'referenced_tweets', 'created_at', 'source'], 
-				 'start_time': startTime.toISOString(), 
-				 'user.fields': ['public_metrics'], 
-				 'sort_order': sortOrder, 
-				 'max_results': SEARCH_COUNT, 
-				 'expansions': ['referenced_tweets.id']});
-		
+        {'tweet.fields': ['public_metrics', 'referenced_tweets', 'created_at', 'source'], 
+         'start_time':  startTime.toISOString(), 
+         'user.fields': ['public_metrics'], 
+         'sort_order':  sortOrder, 
+         'max_results': SEARCH_COUNT, 
+         'expansions':  ['referenced_tweets.id']});
+    
     return searchResObj;
   } catch (error) {
     _logger.error(error);
@@ -355,6 +363,7 @@ async function getSearchResultObj(q) {
 
 /**
  * 対象キーワードがホームタイムラインのツイート内に含まれるかを返す
+ * 　・RTされたツイートはスキップ
  * 
  * @param  {Object} ht 
  * @param  {string} keyword 
@@ -363,13 +372,16 @@ async function getSearchResultObj(q) {
 function checkTargetKeywordExistInHomeTimeLine(ht, keyword) {
   try {
     // タイムラインのツイートを走査
-    for (const tweet of ht.tweets) {
-      const twTxt = tweet.full_text;
-      
+    for (const twObj of ht.tweets) {
+      // RTされたツイートはスキップ
+      if (twObj.retweeted_status) {
+        continue;
+      }
+
       // ツイート本文内に該当キーワードが含まれていれば
-      if (twTxt.indexOf(keyword) !== -1) {
+      if (twObj.full_text.indexOf(keyword) !== -1) {
         console.log('[トレンドが含まれるツイート]' + keyword);
-        console.log(tweet.full_text);
+        console.log(twObj.full_text);
 
         return true;
       }
@@ -383,7 +395,77 @@ function checkTargetKeywordExistInHomeTimeLine(ht, keyword) {
 
 //======================================================
 //
-// 5. 自分がフォローしているユーザデータを全件取得
+// 5. 対象ツイートの情報を取得して投稿日時をセット
+//
+//======================================================
+
+/**
+ * 対象ツイートの情報を取得して投稿日時をセット
+ * 　・TwitterAPIでIDをキーにツイート情報を取得し、投稿日時をセット
+ * 
+ * @param {array} tws
+ * @returns {array}
+ */
+ module.exports.setTweetPostedDates = async function(tws) {
+  var twIds = [];
+
+  try {
+    // IDを配列に追加
+    for (tw of tws) {
+      twIds.push(tw.id_str_in_twitter);
+    }
+
+    // 対象IDのデータを取得
+    const res = await _twClient.v2.tweets(twIds, {'tweet.fields': 'created_at'});    
+    const tObjs = res.data;
+    console.log(tObjs.length + '件のツイートのデータを取得');
+    console.log(tObjs);
+
+    // ツイートを走査。IDをセット
+    for (tw of tws) {      
+      tw = setTargetTweetPostedDate(tw, tObjs);
+    }
+  } catch (error) {
+    _logger.error(error);
+  }
+
+  return tws;
+}
+
+//======================================================
+// 対象ツイートの投稿日時をセット
+//======================================================
+
+/**
+ * 対象ツイートの投稿日時をセット
+ * 
+ * @param {Object} tw 
+ * @param {array} tObjs 
+ * @return {Object}
+ */
+function setTargetTweetPostedDate(tw, tObjs) {
+  try {  
+    // IDが一致するデータをセット  
+    for (tObj of tObjs) {
+      if (tw.id_str_in_twitter == tObj.id) {
+        tw.posted_date = new Date(tObj.created_at);
+        //tw.client_name = tObj.source;
+        //console.log('[日付をセット]' + tw.posted_date);
+        //console.log('[クライアントをセット]' + tw.client_name);
+
+        break;
+      }
+    }
+  } catch (error) {
+    _logger.error(error);
+  }
+
+  return tw;
+}
+
+//======================================================
+//
+// 6. 自分がフォローしているユーザデータを全件取得
 //
 //======================================================
 

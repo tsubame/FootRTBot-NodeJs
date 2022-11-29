@@ -83,32 +83,33 @@ module.exports.ACCESS_TOKEN_KEY = _app_config.ACCESS_TOKEN_KEY;
 // Access Token Secret
 module.exports.ACCESS_TOKEN_SECRET = _app_config.ACCESS_TOKEN_SECRET;
 
+
 //======================================================
 // ロギング用
 //======================================================
 
 // log4jsのオプション
 module.exports.LOG4JS_CONFIG_VALS_DICT = {
-	appenders: {
+  appenders: {
     console: {
       type: 'console'
     },
-		system: {
-			type: 'file',
-			'filename': './logs/error.log',
-			'maxLogSize': 104857600,
-			'layout': {
-				'type': 'pattern',
-				'pattern': '%d [%p] %m'}			
-		} 
-	},
-	categories: { 
-		default: { 
-			appenders: [
-				'console',
-				'system'
-			], 
-			level: 'debug' } 
-	}		
+    system: {
+      type: 'file',
+        'filename': './logs/log.txt',
+        'maxLogSize': 104857600,
+        'layout': {
+          'type': 'pattern',
+          'pattern': '%d [%p] %m'}      
+    } 
+  },
+  categories: { 
+    default: { 
+      appenders: [
+        'console',
+        'system'
+      ], 
+      level: 'debug' } 
+  }    
 };
 

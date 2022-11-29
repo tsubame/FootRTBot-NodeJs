@@ -53,6 +53,7 @@ const _prismaClient = new _prisma.PrismaClient();
 
 /**
  * APIから取得したTweetObjectをDB保存用のTweetモデルに変換
+ * 　・RTの場合、RT数以外はretweeted_statusの値で各種値を上書き
  * 
  * @param {Object} twObj
  * @return {Object} 
@@ -61,12 +62,21 @@ module.exports.getTweetModelFromTweetObj = function(twObj) {
   var d = {}
 
   try {
+    // ツイートをセット
+    var st = twObj;
+    // RTの場合、retweeted_statusをセット
+    if (twObj.retweeted_status) {
+      st = twObj.retweeted_status;
+    }
+
     d = {
-      'id_str_in_twitter': twObj.id_str,
-      'user_name': twObj.user.name,
-      'user_screen_name':  twObj.user.screen_name,
-      'tweet_text': twObj.full_text,
-      'rt_count':   twObj.retweet_count,      
+      'id_str_in_twitter': st.id_str,
+      'user_name':         st.user.name,
+      'user_screen_name':  st.user.screen_name,
+      'tweet_text':        st.full_text,
+      'rt_count':          twObj.retweet_count,      
+      'client_name':       st.source,
+      'posted_date':       new Date(st.created_at)
     }
   } catch (error) {
     _logger.error(error);
@@ -111,6 +121,7 @@ module.exports.getTweetModelFromTweetObj = function(twObj) {
 
 /**
  * APIのTweet検索結果オブジェクトをDB保存用のTweetモデルに変換
+ * 　・RTの場合、IDをRT対象に書き換える
  * 
  * @param {Object} sObj
  * @return {Object} 
@@ -120,11 +131,13 @@ module.exports.getTweetModelFromTweetObj = function(twObj) {
 
   try {
     d = {
-      'id_str_in_twitter': sObj.id,
-      'user_name': '',
-      'user_screen_name':  '',
-      'tweet_text': sObj.text,
-      'rt_count':   sObj.public_metrics.retweet_count,
+      'id_str_in_twitter':  sObj.id,
+      'user_name':          '',
+      'user_screen_name':   '',
+      'tweet_text':         sObj.text,
+      'client_name':        sObj.source,      
+      'rt_count':           sObj.public_metrics.retweet_count,
+      'posted_date':        new Date(sObj.created_at)
     }
 
     // RTはID書き換え
@@ -288,6 +301,64 @@ function checkTargetTweetAlreadyDBSaved(dbSavedTweets, tTweet) {
 
 //======================================================
 //
+// 2-3. 対象ツイートがDB保存済かを返す
+//
+//======================================================
+
+/**
+ * 対象ツイートがDB保存済かを返す
+ * 
+ * @param {Object} tw 
+ * @return {array}
+ */
+ module.exports.isTargetTweetAlreadySaved = async function(tw) { 
+  try {
+    // DBのデータを取得
+    const res = await _prismaClient.tweet.findFirst({
+      where: {
+        id_str_in_twitter: tw.id_str_in_twitter,
+      },
+    });    
+    
+    // 結果があればtrue;
+    if (res) {
+      return true;
+    }
+  } catch (error) {
+    _logger.error(error);
+  }    
+
+  return false;
+}
+
+//======================================================
+// 対象ツイートがDB保存済かを返す
+//======================================================
+
+/**
+ * 対象ツイートがDB保存済かを返す
+ * 
+ * @param {array} dbSavedTweets 
+ * @param {Object} tTweet 
+ * @returns 
+ */
+function checkTargetTweetAlreadyDBSaved(dbSavedTweets, tTweet) {
+  try {
+    for (tw of dbSavedTweets) {
+      if (tw.id_str_in_twitter == tTweet.id_str_in_twitter) {
+        return true;
+      }
+    }
+  } catch (error) {
+    _logger.error(error);
+  }
+
+  return false;
+}
+
+
+//======================================================
+//
 // 3-1. 対象ツイートデータをDBに保存
 //
 //======================================================
@@ -305,8 +376,9 @@ function checkTargetTweetAlreadyDBSaved(dbSavedTweets, tTweet) {
           'id_str_in_twitter':     d.id_str_in_twitter,
           'user_name':             d.user_name,
           'user_screen_name':      d.user_screen_name,
-          'tweet_text':           d.tweet_text,
-          'rt_count':             d.rt_count,      
+          'tweet_text':            d.tweet_text,
+          'rt_count':              d.rt_count,      
+          'client_name':           d.client_name,               
           'posted_date':           d.posted_date,          
         }
       })
