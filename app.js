@@ -31,6 +31,13 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ツイート処理用コントローラ
 var _twController = require('./routes/tweetController');
 
+//======================================================
+// エクスポート
+//======================================================
+
+// エクスポート
+module.exports = app;
+
 
 //======================================================
 //
@@ -50,27 +57,5 @@ app.get('/search', _twController.retweetFromTargetSearchWords);
 //　サンプル処理
 app.get('/sample', _twController.sample);
 
-/*
-app.use('/', indexRouter);
-app.use('/users', usersRouter);
 
-// catch 404 and forward to error handler
-app.use(function(req, res, next) {
-  next(createError(404));
-});
-*/
 
-/*
-// error handler
-app.use(function(err, req, res, next) {
-  // set locals, only providing error in development
-  res.locals.message = err.message;
-  res.locals.error = req.app.get('env') === 'development' ? err : {};
-
-  // render the error page
-  res.status(err.status || 500);
-  res.render('error');
-});
-*/
-
-module.exports = app;

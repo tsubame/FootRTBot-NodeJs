@@ -7,12 +7,12 @@
 //  ・log4js
 //
 // [索引]
-//    □ 1-1. ホームタイムラインのツイートを200件分取得
-//    □ 1-2. ホームタイムラインから一定のRT数以上のツイートを取得
+//    □ 1.   ホームタイムラインから一定のRT数以上のツイートを取得
 //    □ 2.   複数件のツイートをRT
 //    □ 3.   対象キーワードで検索を実行し、一定のRT以上のツイートIDのリストを返す　
 //    □ 4.   トレンドのキーワードのうち、ホームタイムラインでつぶやかれているキーワード一覧を取得
-//    □ 5.   自分がフォローしているユーザのIDを全件取得
+//    □ 5.   対象ツイートの情報を取得して投稿日時をセット
+//    □ 6.   自分がフォローしているユーザのIDを全件取得
 //
 //======================================================
 
@@ -59,60 +59,19 @@ var _myTwitterID = '';
 
 //======================================================
 //
-// 1-1. ホームタイムラインのツイートを200件分取得
-//
-//======================================================
-
-/**
- * ホームタイムラインのツイートを200件分取得
- * 
- * @param {boolean} includeRTTweet RTされたツイートを含めるか
- * @return {array} 
- */
-module.exports.getTweetModelsFromTimeLine = async function(includeRTTweet) {
-  var tws = [];
-
-  try {    
-    // タイムラインからツイート取得
-    const homeTimeline = await _twClient.v1.homeTimeline({'count': _constants.TWEET_GET_COUNT_FROM_TL});
-    console.log(homeTimeline.tweets.length, 'fetched.');
-    
-    // ツイートを走査
-    for (const tObj of homeTimeline.tweets) {
-      // RTはスキップ
-      if (tObj.retweeted_status) {
-        if (!includeRTTweet) {
-          continue;
-        }
-      }
-
-      // APIのツイートデータをDB保存用のツイートデータに変換
-      const tw = _dbAccessor.getTweetModelFromTweetObj(tObj);
-      // 配列に追加
-      tws.push(tw);
-    }
-  } catch (error) {
-    _logger.error(error);
-  }  
-
-  return tws;
-}
-
-//======================================================
-//
-// 1-2. ホームタイムラインから一定のRT数以上のツイートを取得
+// 1. ホームタイムラインから一定のRT数以上のツイートを取得
 //
 //======================================================
 
 /**
  * ホームタイムラインから一定のRT数以上のツイートを取得
  * 　・タイムラインから200件分のツイートを取得
- * 　・RT数が一定のものをDB保存用のTweetModelに変換し、配列に格納して返す
+ * 　・自分のアカウントでRT済のものはスキップ
+ * 　・RT数が一定のものをDB保存用のTweetデータに変換し、配列に格納して返す
  * 
- * @param {function} callback
- * @return {array} TweetModelの配列
+ * @return {array} Tweetデータの配列
  */
-module.exports.getManyRTTweetsFromTimeLine = async function(callback) {
+module.exports.getManyRTTweetsFromTimeLine = async function() {
   var manyRtTweets = [];
 
   try {        
@@ -150,7 +109,7 @@ module.exports.getManyRTTweetsFromTimeLine = async function(callback) {
 
 /**
  * 複数件のツイートをRT
- *   ・自分のTwitterIDをセット
+ *  ・自分のTwitterIDをセット
  *  ・対象ツイートの件数、RT実行
  * 
  * @param {array} twModels RT対象のツイートのモデルの配列
@@ -176,6 +135,7 @@ module.exports.retweetTargetTweets = async function(twModels) {
 
 /** 
  * 自分のTwitterIDをセット
+ * 　・APIで自分のTwitterIDを取得し、_myTwitterIDにセット
  */
 async function setMyTwitterID() {
   try {
@@ -214,6 +174,8 @@ async function retweetTargetIDTweet(tidStr) {
 
 /**
  * 対象キーワードで検索を実行し、一定のRT以上のツイートIDのリストを返す　
+ * 　・APIの検索結果オブジェクトをDB保存用のTweetモデルに変換
+ * 　・アカウント名も検索の対象になるため、本文に検索キーワードが含まれていない場合はスキップ
  * 
  * @param {string} q 
  * @returns 
@@ -235,7 +197,7 @@ async function retweetTargetIDTweet(tidStr) {
         continue;
       }
 
-      // テキストにキーワードが含まれていなければスキップ
+      // ツイート本文にキーワードが含まれていなければスキップ
       if (tw.tweet_text.indexOf(q) === -1) {
         continue;
       }
@@ -458,9 +420,6 @@ function setTargetTweetPostedDate(tw, tObjs) {
     for (tObj of tObjs) {
       if (tw.id_str_in_twitter == tObj.id) {
         tw.posted_date = new Date(tObj.created_at);
-        //tw.client_name = tObj.source;
-        //console.log('[日付をセット]' + tw.posted_date);
-        //console.log('[クライアントをセット]' + tw.client_name);
 
         break;
       }
