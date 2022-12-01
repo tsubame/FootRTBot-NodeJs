@@ -39,25 +39,6 @@ module.exports.SEARCH_TARGET_KEYWORDS = _app_config.SEARCH_TARGET_KEYWORDS;
 // RT時のNGワード　このキーワードを含むツイートはRTしない
 module.exports.RT_NG_KEYWORDS = _app_config.RT_NG_KEYWORDS;
 
-//======================================================
-// サイト設定
-//======================================================
-
-// トップページのアドレス
-module.exports.TOP_PAGE_URL = _app_config.TOP_PAGE_URL;
-
-// OAuthコールバックのURL
-module.exports.OAUTH_CALLBACK_URL = _app_config.TOP_PAGE_URL + 'auth/tweet/callback';
-
-// 待受ポート番号
-module.exports.PORT = _app_config.PORT;
-
-//======================================================
-// メール
-//======================================================
-
-// メールアカウント
-module.exports.MAIL = _app_config.MAIL_ADD;
 
 //======================================================
 // ツイッターアカウント
@@ -68,9 +49,6 @@ module.exports.SCREEN_NAME = _app_config.TWITTER_SCREEN_NAME;
 
 // アカウントID
 module.exports.ACCOUNT_ID = _app_config.TWITTER_ACCOUNT_ID;
-
-// BEARER_KEY
-module.exports.BEARER_KEY = _app_config.BEARER_KEY;
 
 // Consumer Key
 module.exports.CONSUMER_KEY = _app_config.CONSUMER_KEY;
