@@ -21,7 +21,7 @@
 //======================================================
 
 // 定数
-const _constants = require('../etc/const');
+const _constants = require('../etc/constants');
 
 // twitter-api-v2ライブラリ
 const _twitterAPI = require('twitter-api-v2');

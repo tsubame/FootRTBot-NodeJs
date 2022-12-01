@@ -17,7 +17,7 @@
 //======================================================
 
 // 定数
-const _constants  = require('../etc/const');
+const _constants  = require('../etc/constants');
 
 // log4js
 const _log4js     = require('log4js');
