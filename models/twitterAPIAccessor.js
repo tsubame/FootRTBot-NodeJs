@@ -67,9 +67,9 @@ var _myTwitterID = '';
  * ホームタイムラインから一定のRT数以上のツイートを取得
  * 　・タイムラインから200件分のツイートを取得
  * 　・自分のアカウントでRT済のものはスキップ
- * 　・RT数が一定のものをDB保存用のTweetデータに変換し、配列に格納して返す
+ * 　・RT数が一定のものをPrismaのTweetモデルデータに変換し、配列に格納して返す
  * 
- * @return {array} Tweetデータの配列
+ * @return {array} Tweetモデルデータの配列
  */
 module.exports.getManyRTTweetsFromTimeLine = async function() {
   var manyRtTweets = [];
@@ -112,15 +112,15 @@ module.exports.getManyRTTweetsFromTimeLine = async function() {
  *  ・自分のTwitterIDをセット
  *  ・対象ツイートの件数、RT実行
  * 
- * @param {array} twModels RT対象のツイートのモデルの配列
+ * @param {array} tws RT対象のTweetモデルデータの配列
  */
-module.exports.retweetTargetTweets = async function(twModels) {
+module.exports.retweetTargetTweets = async function(tws) {
   try {
     // 自分のTwitterIDをセット
     await setMyTwitterID();
     
     // 各ツイートをRT
-    for (const d of twModels) {      
+    for (const d of tws) {      
       retweetTargetIDTweet(d.id_str_in_twitter);
       _logger.debug('[RT実行] ' + d.rt_count + 'RT ' + d.user_screen_name + ' ' + d.tweet_text);
     }
@@ -174,31 +174,34 @@ async function retweetTargetIDTweet(tidStr) {
 
 /**
  * 対象キーワードで検索を実行し、一定のRT以上のツイートIDのリストを返す　
- * 　・APIの検索結果オブジェクトをDB保存用のTweetモデルに変換
- * 　・アカウント名も検索の対象になるため、本文に検索キーワードが含まれていない場合はスキップ
+ *  ・APIで検索を実施
+ *  ・検索結果の各ツイートデータを走査
+ *  ・API検索結果のツイートオブジェクトをDB保存用のTweetモデルに変換
+ *  ・配列に該当ツイートのIDを保存済ならスキップ（複数ユーザにRTされたツイートは複数件引っかかるため）
+ *  ・アカウント名も検索の対象になるため、本文に検索キーワードが含まれていない場合はスキップ
+ *  ・RT数が一定以上なら配列に追加
  * 
- * @param {string} q 
- * @returns 
+ * @param {string} q 検索キーワード
+ * @returns {array}  Tweetモデルデータの配列
  */
  module.exports.getManyRTTweetsBySearch = async function(q) {
   var tweets = [];
   var savedTweetIds = [];
 
   try {
-    // 検索実行
+    // APIで対象キーワードの検索を実施
     const searchResObj = await getSearchResultObj(q);
 
     // 検索結果のツイートを走査
     for (const twObj of searchResObj._realData.data) {
-      // APIの検索結果をTweetモデルに変換
-      const tw = _dbAccessor.getTweetModelFromTweetSearchObj(twObj);      
-      // 配列に保存済ならスキップ
+      // API検索結果オブジェクトをTweetモデルに変換
+      const tw = _dbAccessor.getTweetModelFromTweetSearchObj(twObj);
+
+      // 配列に該当ツイートのIDを保存済ならスキップ
       if (savedTweetIds.indexOf(tw.id_str_in_twitter) !== -1) {
         continue;
-      }
-
       // ツイート本文にキーワードが含まれていなければスキップ
-      if (tw.tweet_text.indexOf(q) === -1) {
+      } else if (tw.tweet_text.indexOf(q) === -1) {
         continue;
       }
 
@@ -216,14 +219,16 @@ async function retweetTargetIDTweet(tidStr) {
 }
 
 //======================================================
-// 検索結果のオブジェクトを取得
+// APIの検索結果オブジェクトを取得
 //======================================================
 
 /**
- * 検索結果のオブジェクトを取得
+ * APIの検索結果オブジェクトを取得
+ * 　・定数の値に合わせて新着ツイート、または関連性の高いツイートを検索するかをセット
+ * 　・24時間以内のツイートのみを100件取得
  * 
- * @param {string} q 
- * @returns 
+ * @param {string} q 検索キーワード
+ * @returns {Object} API検索結果のTwitterObject
  */
 async function getSearchResultObj(q) {
   const SORT_ORDER_RECENCY   = 'recency';
@@ -270,10 +275,9 @@ async function getSearchResultObj(q) {
  * 　・日本のトレンドのキーワード一覧を取得
  * 　・ホームタイムラインのツイートに含まれているキーワード一覧を返す
  * 
- * @param  callback 
- * @return htTrWords
+ * @return {array} キーワードの配列
  */
- module.exports.getTrendKeywordsInHomeTimeLine = async function (callback) {
+ module.exports.getTrendKeywordsInHomeTimeLine = async function () {
   htTrWords = [];
 
   try {
@@ -304,7 +308,7 @@ async function getSearchResultObj(q) {
  * トレンドのキーワード一覧を取得
  * 　・日本のトレンドのキーワードを取得
  * 
- * @return {array}
+ * @return {array} キーワードの配列
  */
  async function getJPTrendKeywords() {
   trWords = [];
@@ -332,9 +336,9 @@ async function getSearchResultObj(q) {
  * 対象キーワードがホームタイムラインのツイート内に含まれるかを返す
  * 　・RTされたツイートはスキップ
  * 
- * @param  {Object} ht 
- * @param  {string} keyword 
- * @return {bool}
+ * @param  {Object} ht ホームタイムラインオブジェクト
+ * @param  {string} keyword 検索キーワード
+ * @return {bool} 
  */
 function checkTargetKeywordExistInHomeTimeLine(ht, keyword) {
   try {
@@ -368,31 +372,33 @@ function checkTargetKeywordExistInHomeTimeLine(ht, keyword) {
 
 /**
  * 対象ツイートの情報を取得して投稿日時をセット
- * 　・TwitterAPIでIDをキーにツイート情報を取得し、投稿日時をセット
+ * 　・対象ツイートが0件なら終了
+ * 　・TwitterAPIでIDをキーにツイート情報を取得
+ * 　・取得したデータから各ツイートデータに投稿日時をセット
  * 
- * @param {array} tws
- * @returns {array}
+ * @param {array} tws Tweetモデルデータの配列
+ * @returns {array} Tweetモデルデータの配列
  */
  module.exports.setTweetPostedDates = async function(tws) {
   var twIds = [];
 
   try {
+    // 対象ツイートが0件なら終了
     if (tws.length == 0) {
       return tws;
     }
 
-    // IDを配列に追加
+    // 各ツイートのIDを配列に追加
     for (tw of tws) {
       twIds.push(tw.id_str_in_twitter);
     }
 
-    // 対象IDのデータを取得
+    // 対象IDのデータをAPIで取得
     const res = await _twClient.v2.tweets(twIds, {'tweet.fields': 'created_at'});    
     const tObjs = res.data;
     console.log(tObjs.length + '件のツイートのデータを取得');
-    //console.log(tObjs);
 
-    // ツイートを走査。IDをセット
+    // ツイートを走査。投稿日時をセット
     for (tw of tws) {      
       tw = setTargetTweetPostedDate(tw, tObjs);
     }
@@ -410,8 +416,8 @@ function checkTargetKeywordExistInHomeTimeLine(ht, keyword) {
 /**
  * 対象ツイートの投稿日時をセット
  * 
- * @param {Object} tw 
- * @param {array} tObjs 
+ * @param {Object} tw Tweetモデルデータ
+ * @param {array}  tObjs 
  * @return {Object}
  */
 function setTargetTweetPostedDate(tw, tObjs) {
