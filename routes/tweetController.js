@@ -52,7 +52,6 @@ const _logger = _log4js.getLogger();
  *   ・RT数の多いツイートのうち、RT対象のツイートをセット（DB未保存、投稿日時が一定時間以内）
  *   ・RT実行
  *   ・RTしたツイートをDB登録
- *   ・RTしたツイートのうち、未フォローのユーザをDBに保存
  * 
  * @param {Object} req 
  * @param {Object} res 
@@ -71,9 +70,6 @@ module.exports.retweetFromHomeTimeLine = async function(req, res) {
     _twAccessor.retweetTargetTweets(rtTargetTweets);
     // RTしたツイートをDB登録
     _dbAccessor.saveTweetDatas(rtTargetTweets);    
-
-    // RTしたツイートのうち、未フォローのユーザをDBに保存
-    //saveNotFollowUserInRTTweetsToDB(newManyRTTweetModels);
   } catch (error) {
     _logger.error(error);
   }

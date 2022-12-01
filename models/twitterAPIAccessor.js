@@ -245,7 +245,7 @@ async function getSearchResultObj(q) {
       sortOrder = SORT_ORDER_RECENCY;
     }
     
-    // 開始時刻をセット
+    // 検索対象の開始時刻（24時間前）をセット
     var startTime = new Date()
     startTime.setHours(startTime.getHours() - _constants.SKIP_PAST_HOUR);
 
@@ -334,7 +334,9 @@ async function getSearchResultObj(q) {
 
 /**
  * 対象キーワードがホームタイムラインのツイート内に含まれるかを返す
- * 　・RTされたツイートはスキップ
+ * 　・TLのツイートを走査
+ * 　・フォローしているユーザがRTしたツイートはスキップ（対象ジャンル以外が含まれる可能性があるため）
+ * 　・ツイート本文に該当ワードが含まれていればTrue
  * 
  * @param  {Object} ht ホームタイムラインオブジェクト
  * @param  {string} keyword 検索キーワード
